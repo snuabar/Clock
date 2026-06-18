@@ -41,7 +41,7 @@ class SunriseSunsetApplication : Application() {
             AppDatabase::class.java,
             "sunrise_sunset_alarm_db"
         )
-            .fallbackToDestructiveMigration()
+            .addMigrations(AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5)
             .build()
 
         scheduleAlarmRescheduleWork()

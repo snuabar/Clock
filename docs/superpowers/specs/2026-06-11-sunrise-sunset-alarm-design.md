@@ -56,7 +56,6 @@
 - **响铃模式（用户可选）**:
   - 全屏响铃（标准闹钟界面）
   - 普通通知模式（通知栏提醒）
-  - 灵动岛模式（如果设备支持 Android 14+ Live Activities）
 - 贪睡功能（Snooze）：默认 5 分钟，可配置
 - 铃声选择：系统铃声或自定义铃声
 - 振动开关
@@ -116,7 +115,7 @@
 - 偏移量滑块（-2小时 ~ +2小时）
 - 列表项：重复模式、铃声、贪睡
 - 每项点击后从底部弹出选择器
-- **高级设置** 按钮：点击进入新页面，包含振动开关、响铃音量、响铃时长、节假日跳过、响铃模式选择（全屏/通知/灵动岛）
+- **高级设置** 按钮：点击进入新页面，包含振动开关、响铃音量、响铃时长、节假日跳过、响铃模式选择（全屏/通知）
 - 底部：保存按钮
 
 #### 设置 — 底部弹窗
@@ -152,13 +151,13 @@ data class Alarm(
     val ringtoneUri: String?,      // 铃声URI
     val snoozeEnabled: Boolean,   // 是否开启贪睡
     val snoozeMinutes: Int,        // 贪睡间隔
-    val ringMode: RingMode,        // 响铃模式：FULL_SCREEN / NOTIFICATION / LIVE_ACTIVITY
+    val ringMode: RingMode,        // 响铃模式：FULL_SCREEN / NOTIFICATION
     val isEnabled: Boolean,       // 开关状态
     val createdAt: Long            // 创建时间
 )
 
 enum class BaseType { SUNRISE, SUNSET }
-enum class RingMode { FULL_SCREEN, NOTIFICATION, LIVE_ACTIVITY }
+enum class RingMode { FULL_SCREEN, NOTIFICATION }
 ```
 
 ### Location（位置实体）
@@ -235,7 +234,6 @@ AlarmManager 触发 → 系统广播唤醒应用
 根据用户选择的响铃模式启动：
     - 全屏模式 → 全屏响铃 Activity
     - 通知模式 → 高优先级通知
-    - 灵动岛模式 → Live Activity
     ↓
 播放铃声 + 震动
     ↓
@@ -251,7 +249,7 @@ AlarmManager 触发 → 系统广播唤醒应用
 │                     UI 层 (Jetpack Compose)                  │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
 │  │   主页面      │  │  底部弹窗     │  │   响铃页面        │  │
-│  │  闹钟列表    │  │  添加/编辑   │  │  (全屏/通知/灵动岛)│  │
+│  │  闹钟列表    │  │  添加/编辑   │  │  (全屏/通知)      │  │
 │  └──────┬───────┘  └──────┬───────┘  └──────────────────┘  │
 │         └─────────────────┘                                   │
 │                      ViewModel 层                             │

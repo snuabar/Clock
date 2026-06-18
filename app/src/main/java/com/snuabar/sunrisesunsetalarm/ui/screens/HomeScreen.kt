@@ -1,6 +1,11 @@
 package com.snuabar.sunrisesunsetalarm.ui.screens
 
 import android.Manifest
+import android.app.AlarmManager
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -25,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.snuabar.sunrisesunsetalarm.data.model.Alarm
 import com.snuabar.sunrisesunsetalarm.data.model.BaseType
 import com.snuabar.sunrisesunsetalarm.data.model.DarkMode
+import com.snuabar.sunrisesunsetalarm.data.model.RepeatMode
 import com.snuabar.sunrisesunsetalarm.ui.components.AddAlarmBottomSheet
 import com.snuabar.sunrisesunsetalarm.ui.components.AlarmCard
 import com.snuabar.sunrisesunsetalarm.ui.components.LocationPicker
@@ -63,10 +69,10 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
     LaunchedEffect(Unit) {
         if (!settingsManager.hasInitializedDemoAlarms && alarms.isEmpty()) {
             alarmRepository.insertAlarm(
-                Alarm("1", "晨间唤醒", BaseType.SUNRISE, -30, "true,true,true,true,true,false,false")
+                Alarm("1", "晨间唤醒", BaseType.SUNRISE, 0, "true,true,true,true,true,true,true", repeatMode = RepeatMode.DAILY)
             )
             alarmRepository.insertAlarm(
-                Alarm("2", "日落提醒", BaseType.SUNSET, 0, "true,true,true,true,true,true,true")
+                Alarm("2", "日落提醒", BaseType.SUNSET, 0, "true,true,true,true,true,true,true", repeatMode = RepeatMode.DAILY)
             )
             settingsManager.hasInitializedDemoAlarms = true
         }
@@ -78,6 +84,33 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
     var showSettings by remember { mutableStateOf(false) }
 
     val alarmManagerHelper = remember { AlarmManagerHelper(context) }
+
+    // Check if exact alarm permission is granted (Android 12+)
+    fun canScheduleExactAlarms(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            alarmManager.canScheduleExactAlarms()
+        } else {
+            true
+        }
+    }
+
+    // Prompt user to enable exact alarm permission
+    suspend fun requestExactAlarmPermission(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !canScheduleExactAlarms()) {
+            val result = snackbarHostState.showSnackbar(
+                message = "需要开启精确闹钟权限，否则闹钟可能无法准时响起",
+                actionLabel = "去设置",
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                context.startActivity(intent)
+            }
+            return false
+        }
+        return true
+    }
 
     var lastCalibratedAt by remember { mutableStateOf(settingsManager.lastCalibratedAt) }
     val calibrationText = remember(lastCalibratedAt) {
@@ -93,6 +126,23 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
     ) { permissions ->
         if (!permissions.values.all { it }) {
             coroutineScope.launch { snackbarHostState.showSnackbar("需要位置权限") }
+        }
+    }
+
+    // Request notification permission on Android 13+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (!isGranted) {
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar("未授予通知权限，闹钟提醒可能无法正常显示")
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 
@@ -136,7 +186,9 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
                             coroutineScope.launch {
                                 alarmRepository.updateAlarm(alarm.copy(isEnabled = isEnabled))
                                 if (isEnabled) {
-                                    alarmManagerHelper.scheduleAlarm(alarm.copy(isEnabled = true), currentLat, currentLng)
+                                    if (requestExactAlarmPermission()) {
+                                        alarmManagerHelper.scheduleAlarm(alarm.copy(isEnabled = true), currentLat, currentLng)
+                                    }
                                 } else {
                                     alarmManagerHelper.cancelAlarm(alarm)
                                 }
@@ -183,7 +235,9 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
                         alarmRepository.insertAlarm(alarm)
                     }
                     if (alarm.isEnabled) {
-                        alarmManagerHelper.scheduleAlarm(alarm, currentLat, currentLng)
+                        if (requestExactAlarmPermission()) {
+                            alarmManagerHelper.scheduleAlarm(alarm, currentLat, currentLng)
+                        }
                     }
                 }
                 showAddSheet = false

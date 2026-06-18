@@ -5,8 +5,10 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import com.snuabar.sunrisesunsetalarm.data.model.Alarm
 import com.snuabar.sunrisesunsetalarm.data.model.BaseType
+import com.snuabar.sunrisesunsetalarm.data.model.RepeatMode
 import com.snuabar.sunrisesunsetalarm.receiver.AlarmReceiver
 import com.snuabar.sunrisesunsetalarm.util.HolidayUtil
 import com.snuabar.sunrisesunsetalarm.util.SunCalcUtil
@@ -17,26 +19,38 @@ class AlarmManagerHelper(private val context: Context) {
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
     fun scheduleAlarm(alarm: Alarm, latitude: Double, longitude: Double) {
-        if (!alarm.isEnabled) return
+        if (!alarm.isEnabled) {
+            Log.d("AlarmManagerHelper", "Alarm ${alarm.id} is disabled, skipping schedule")
+            return
+        }
 
         val nextTriggerTime = calculateNextTriggerTime(alarm, latitude, longitude)
         val pendingIntent = createPendingIntent(alarm)
 
+        Log.d("AlarmManagerHelper", "Scheduling alarm ${alarm.id} at ${Date(nextTriggerTime)}, repeatMode=${alarm.repeatMode}, baseType=${alarm.baseType}")
+
+        // Check exact alarm permission on Android 12+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (alarmManager.canScheduleExactAlarms()) {
-                alarmManager.setExactAndAllowWhileIdle(
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Log.w("AlarmManagerHelper", "Cannot schedule exact alarm - SCHEDULE_EXACT_ALARM permission not granted. " +
+                    "User must enable this in system Settings > Apps > Special app access > Alarms & reminders")
+                // Fallback to inexact alarm as a best-effort approach
+                alarmManager.setAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     nextTriggerTime,
                     pendingIntent
                 )
+                Log.d("AlarmManagerHelper", "Scheduled inexact fallback alarm for ${alarm.id}")
+                return
             }
-        } else {
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                nextTriggerTime,
-                pendingIntent
-            )
         }
+
+        alarmManager.setExactAndAllowWhileIdle(
+            AlarmManager.RTC_WAKEUP,
+            nextTriggerTime,
+            pendingIntent
+        )
+        Log.d("AlarmManagerHelper", "Successfully scheduled exact alarm ${alarm.id}")
     }
 
     fun cancelAlarm(alarm: Alarm) {
@@ -55,24 +69,34 @@ class AlarmManagerHelper(private val context: Context) {
             val checkDate = now.clone() as Calendar
             checkDate.add(Calendar.DAY_OF_YEAR, daysAhead)
 
-            val sunTimes = SunCalcUtil.calculateSunTimes(checkDate, latitude, longitude)
-            val baseTime = when (alarm.baseType) {
-                BaseType.SUNRISE -> sunTimes.sunrise
-                BaseType.SUNSET -> sunTimes.sunset
+            val triggerTime = when (alarm.baseType) {
+                BaseType.CUSTOM -> {
+                    // For custom alarms, use the specified hour and minute
+                    checkDate.set(Calendar.HOUR_OF_DAY, alarm.customHour.coerceIn(0, 23))
+                    checkDate.set(Calendar.MINUTE, alarm.customMinute.coerceIn(0, 59))
+                    checkDate.set(Calendar.SECOND, 0)
+                    checkDate.set(Calendar.MILLISECOND, 0)
+                    checkDate.timeInMillis
+                }
+                else -> {
+                    val sunTimes = SunCalcUtil.calculateSunTimes(checkDate, latitude, longitude)
+                    val baseTime = when (alarm.baseType) {
+                        BaseType.SUNRISE -> sunTimes.sunrise
+                        BaseType.SUNSET -> sunTimes.sunset
+                        else -> throw IllegalStateException("Unexpected base type: ${alarm.baseType}")
+                    }
+                    baseTime + (alarm.offsetMinutes * 60 * 1000)
+                }
             }
 
-            val triggerTime = baseTime + (alarm.offsetMinutes * 60 * 1000)
-
-            if (daysAhead == 0) {
-                // For today, check if the time has already passed
-                if (triggerTime <= now.timeInMillis) {
-                    if (!hasRepeatDays) {
-                        // No repeat set, time has passed for today, try tomorrow
-                        continue
-                    }
-                    // Time passed, try next day
+            // Check if the trigger time has already passed (for all days, not just today)
+            if (triggerTime <= now.timeInMillis) {
+                if (!hasRepeatDays && daysAhead == 0) {
+                    // No repeat set, time has passed for today, try tomorrow
                     continue
                 }
+                // Time passed, try next day
+                continue
             }
 
             if (hasRepeatDays) {
@@ -106,12 +130,24 @@ class AlarmManagerHelper(private val context: Context) {
         // Fallback: return tomorrow's time
         val tomorrow = now.clone() as Calendar
         tomorrow.add(Calendar.DAY_OF_YEAR, 1)
-        val sunTimes = SunCalcUtil.calculateSunTimes(tomorrow, latitude, longitude)
-        val baseTime = when (alarm.baseType) {
-            BaseType.SUNRISE -> sunTimes.sunrise
-            BaseType.SUNSET -> sunTimes.sunset
+        return when (alarm.baseType) {
+            BaseType.CUSTOM -> {
+                tomorrow.set(Calendar.HOUR_OF_DAY, alarm.customHour.coerceIn(0, 23))
+                tomorrow.set(Calendar.MINUTE, alarm.customMinute.coerceIn(0, 59))
+                tomorrow.set(Calendar.SECOND, 0)
+                tomorrow.set(Calendar.MILLISECOND, 0)
+                tomorrow.timeInMillis
+            }
+            else -> {
+                val sunTimes = SunCalcUtil.calculateSunTimes(tomorrow, latitude, longitude)
+                val baseTime = when (alarm.baseType) {
+                    BaseType.SUNRISE -> sunTimes.sunrise
+                    BaseType.SUNSET -> sunTimes.sunset
+                    else -> throw IllegalStateException("Unexpected base type: ${alarm.baseType}")
+                }
+                baseTime + (alarm.offsetMinutes * 60 * 1000)
+            }
         }
-        return baseTime + (alarm.offsetMinutes * 60 * 1000)
     }
 
     private fun createPendingIntent(alarm: Alarm): PendingIntent {

@@ -2,6 +2,7 @@ package com.snuabar.sunrisesunsetalarm.ui.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.WbTwilight
@@ -13,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.snuabar.sunrisesunsetalarm.data.model.Alarm
 import com.snuabar.sunrisesunsetalarm.data.model.BaseType
+import com.snuabar.sunrisesunsetalarm.data.model.RepeatMode
 import com.snuabar.sunrisesunsetalarm.util.SunCalcUtil
 import java.util.Calendar
 
@@ -38,17 +40,16 @@ fun AlarmCard(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                val iconData = when (alarm.baseType) {
+                    BaseType.SUNRISE -> Triple(Icons.Default.WbSunny, "日出", MaterialTheme.colorScheme.primary)
+                    BaseType.SUNSET -> Triple(Icons.Default.WbTwilight, "日落", MaterialTheme.colorScheme.tertiary)
+                    BaseType.CUSTOM -> Triple(Icons.Default.AccessTime, "自定义", MaterialTheme.colorScheme.secondary)
+                }
                 Icon(
-                    imageVector = when (alarm.baseType) {
-                        BaseType.SUNRISE -> Icons.Default.WbSunny
-                        BaseType.SUNSET -> Icons.Default.WbTwilight
-                    },
-                    contentDescription = if (alarm.baseType == BaseType.SUNRISE) "日出" else "日落",
+                    imageVector = iconData.first,
+                    contentDescription = iconData.second,
                     modifier = Modifier.size(32.dp),
-                    tint = when (alarm.baseType) {
-                        BaseType.SUNRISE -> MaterialTheme.colorScheme.primary
-                        BaseType.SUNSET -> MaterialTheme.colorScheme.tertiary
-                    }
+                    tint = iconData.third
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -93,39 +94,55 @@ private fun buildDescription(alarm: Alarm): String {
     val baseText = when (alarm.baseType) {
         BaseType.SUNRISE -> "日出"
         BaseType.SUNSET -> "日落"
+        BaseType.CUSTOM -> "自定义"
     }
     val offsetText = when {
+        alarm.baseType == BaseType.CUSTOM -> "" // Custom alarms don't show offset
         alarm.offsetMinutes > 0 -> " +${alarm.offsetMinutes}分钟"
         alarm.offsetMinutes < 0 -> " ${alarm.offsetMinutes}分钟"
         else -> ""
     }
-    val repeatText = formatRepeatDays(alarm.getRepeatDaysList())
+    val repeatText = formatRepeatMode(alarm)
     return "$baseText$offsetText · $repeatText"
 }
 
-private fun formatRepeatDays(days: List<Boolean>): String {
-    val dayLabels = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
-    val selectedDays = days.mapIndexedNotNull { index, isSelected ->
-        if (isSelected) dayLabels[index] else null
-    }
-    return when {
-        selectedDays.isEmpty() -> "仅一次"
-        selectedDays.size == 7 -> "每天"
-        days.take(5).all { it } && !days[5] && !days[6] -> "工作日"
-        !days[0] && !days[1] && !days[2] && !days[3] && !days[4] && days[5] && days[6] -> "周末"
-        else -> selectedDays.joinToString(", ")
+private fun formatRepeatMode(alarm: Alarm): String {
+    return when (alarm.repeatMode) {
+        RepeatMode.ONCE -> "仅一次"
+        RepeatMode.DAILY -> "每天"
+        RepeatMode.WEEKDAYS -> "工作日"
+        RepeatMode.WEEKENDS -> "周末"
+        RepeatMode.CUSTOM -> {
+            val dayLabels = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
+            val days = alarm.getRepeatDaysList()
+            val selectedDays = days.mapIndexedNotNull { index, isSelected ->
+                if (isSelected) dayLabels[index] else null
+            }
+            when {
+                selectedDays.isEmpty() -> "仅一次"
+                selectedDays.size == 7 -> "每天"
+                else -> selectedDays.joinToString(", ")
+            }
+        }
     }
 }
 
 private fun calculateAlarmTime(alarm: Alarm, latitude: Double, longitude: Double): String {
     return try {
-        val sunTimes = SunCalcUtil.calculateSunTimes(Calendar.getInstance(), latitude, longitude)
-        val baseTimeMillis = if (alarm.baseType == BaseType.SUNRISE) sunTimes.sunrise else sunTimes.sunset
-        val calendar = Calendar.getInstance().apply { timeInMillis = baseTimeMillis }
-        calendar.add(Calendar.MINUTE, alarm.offsetMinutes)
-        val hour = calendar.get(Calendar.HOUR_OF_DAY)
-        val minute = calendar.get(Calendar.MINUTE)
-        String.format("%02d:%02d", hour, minute)
+        when (alarm.baseType) {
+            BaseType.CUSTOM -> {
+                String.format("%02d:%02d", alarm.customHour.coerceIn(0, 23), alarm.customMinute.coerceIn(0, 59))
+            }
+            else -> {
+                val sunTimes = SunCalcUtil.calculateSunTimes(Calendar.getInstance(), latitude, longitude)
+                val baseTimeMillis = if (alarm.baseType == BaseType.SUNRISE) sunTimes.sunrise else sunTimes.sunset
+                val calendar = Calendar.getInstance().apply { timeInMillis = baseTimeMillis }
+                calendar.add(Calendar.MINUTE, alarm.offsetMinutes)
+                val hour = calendar.get(Calendar.HOUR_OF_DAY)
+                val minute = calendar.get(Calendar.MINUTE)
+                String.format("%02d:%02d", hour, minute)
+            }
+        }
     } catch (_: Exception) {
         "06:15"
     }

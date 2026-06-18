@@ -105,18 +105,20 @@ object SunCalcUtil {
         val tLocal = h + ra - (0.06571 * t) - 6.622
 
         // 12. Adjust back to UTC
-        return (tLocal - lngHour) % 24.0
+        val utcHours = (tLocal - lngHour) % 24.0
+        return if (utcHours < 0) utcHours + 24.0 else utcHours
     }
 
     /**
      * Convert UTC hours to a local Calendar instance.
      */
     private fun utcHoursToLocalCalendar(year: Int, month: Int, day: Int, utcHours: Double): Calendar {
+        val safeHours = utcHours % 24.0
+        val hour = safeHours.toInt()
+        val minute = ((safeHours - hour) * 60).toInt()
+
         val utcCal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-        utcCal.set(year, month - 1, day, 0, 0, 0)
-        utcCal.set(Calendar.HOUR_OF_DAY, utcHours.toInt())
-        utcCal.set(Calendar.MINUTE, ((utcHours % 1) * 60).toInt())
-        utcCal.set(Calendar.SECOND, 0)
+        utcCal.set(year, month - 1, day, hour.coerceIn(0, 23), minute.coerceIn(0, 59), 0)
 
         // Convert to local time
         val localCal = Calendar.getInstance()

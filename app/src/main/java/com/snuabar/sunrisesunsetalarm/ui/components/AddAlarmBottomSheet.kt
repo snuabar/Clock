@@ -1,7 +1,9 @@
 package com.snuabar.sunrisesunsetalarm.ui.components
 
+import android.app.TimePickerDialog
 import android.media.RingtoneManager
 import android.net.Uri
+import android.widget.TimePicker
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -19,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.snuabar.sunrisesunsetalarm.data.model.Alarm
 import com.snuabar.sunrisesunsetalarm.data.model.BaseType
+import com.snuabar.sunrisesunsetalarm.data.model.RepeatMode
 import com.snuabar.sunrisesunsetalarm.data.model.RingMode
 import java.util.*
 
@@ -37,6 +40,41 @@ fun AddAlarmBottomSheet(
     var offsetMinutes by remember { mutableIntStateOf(alarm?.offsetMinutes ?: 0) }
     var showAdvanced by remember { mutableStateOf(false) }
 
+    // Custom time fields - default to current time for new alarms
+    val currentCalendar = Calendar.getInstance()
+    var customHour by remember { mutableIntStateOf(alarm?.customHour?.takeIf { it >= 0 } ?: currentCalendar.get(Calendar.HOUR_OF_DAY)) }
+    var customMinute by remember { mutableIntStateOf(alarm?.customMinute?.takeIf { it >= 0 } ?: currentCalendar.get(Calendar.MINUTE)) }
+
+    // Time picker dialog
+    val timePickerDialog = remember {
+        TimePickerDialog(
+            context,
+            { _: TimePicker, hour: Int, minute: Int ->
+                customHour = hour
+                customMinute = minute
+            },
+            customHour,
+            customMinute,
+            true
+        )
+    }
+
+    // Repeat mode
+    var selectedRepeatMode by remember { mutableStateOf(alarm?.repeatMode ?: RepeatMode.CUSTOM) }
+    var repeatDays by remember {
+        mutableStateOf(alarm?.getRepeatDaysList() ?: List(7) { true })
+    }
+
+    // Repeat mode dropdown
+    val repeatModeOptions = listOf(
+        RepeatMode.ONCE to "仅一次",
+        RepeatMode.DAILY to "每天",
+        RepeatMode.WEEKDAYS to "工作日",
+        RepeatMode.WEEKENDS to "周末",
+        RepeatMode.CUSTOM to "自定义"
+    )
+    var repeatModeExpanded by remember { mutableStateOf(false) }
+
     // Advanced settings
     var selectedRingMode by remember { mutableStateOf(alarm?.ringMode ?: RingMode.FULL_SCREEN) }
     var vibrateEnabled by remember { mutableStateOf(alarm?.vibrateEnabled ?: true) }
@@ -46,9 +84,6 @@ fun AddAlarmBottomSheet(
     var ringtoneUri by remember { mutableStateOf(alarm?.ringtoneUri) }
     var snoozeEnabled by remember { mutableStateOf(alarm?.snoozeEnabled ?: true) }
     var snoozeMinutes by remember { mutableIntStateOf(alarm?.snoozeMinutes ?: 5) }
-    var repeatDays by remember {
-        mutableStateOf(alarm?.getRepeatDaysList() ?: List(7) { true })
-    }
 
     // Ringtone picker launcher
     val ringtoneLauncher = rememberLauncherForActivityResult(
@@ -91,14 +126,18 @@ fun AddAlarmBottomSheet(
                             baseType = selectedType,
                             offsetMinutes = offsetMinutes,
                             repeatDays = repeatDays.joinToString(",") { it.toString() },
+                            repeatMode = selectedRepeatMode,
                             ringtoneUri = ringtoneUri,
                             ringMode = selectedRingMode,
                             vibrateEnabled = vibrateEnabled,
                             ringDurationMinutes = ringDurationMinutes,
                             crescendoSeconds = crescendoSeconds,
                             skipHolidays = skipHolidays,
+                            customHour = customHour,
+                            customMinute = customMinute,
                             snoozeEnabled = snoozeEnabled,
-                            snoozeMinutes = snoozeMinutes
+                            snoozeMinutes = snoozeMinutes,
+                            createdAt = alarm?.createdAt ?: System.currentTimeMillis()
                         )
                         onSave(savedAlarm)
                     }
@@ -141,6 +180,7 @@ fun AddAlarmBottomSheet(
                             text = when (type) {
                                 BaseType.SUNRISE -> "日出"
                                 BaseType.SUNSET -> "日落"
+                                BaseType.CUSTOM -> "自定义"
                             }
                         )
                     }
@@ -149,37 +189,107 @@ fun AddAlarmBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Offset slider
-            Text(
-                text = "偏移量: ${formatOffset(offsetMinutes)}",
-                style = MaterialTheme.typography.bodyLarge
-            )
-            Slider(
-                value = offsetMinutes.toFloat(),
-                onValueChange = { offsetMinutes = it.toInt() },
-                valueRange = -120f..120f,
-                steps = 239,
-                modifier = Modifier.fillMaxWidth()
-            )
+            // Show offset slider for SUNRISE/SUNSET, show time picker for CUSTOM
+            if (selectedType == BaseType.CUSTOM) {
+                // Custom time picker - click to open TimePickerDialog
+                Text(
+                    text = "响铃时间",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { timePickerDialog.show() },
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = String.format("%02d:%02d", customHour, customMinute),
+                            style = MaterialTheme.typography.displayMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            } else {
+                // Offset slider for sunrise/sunset
+                Text(
+                    text = "偏移量: ${formatOffset(offsetMinutes)}",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Slider(
+                    value = offsetMinutes.toFloat(),
+                    onValueChange = { offsetMinutes = it.toInt() },
+                    valueRange = -120f..120f,
+                    steps = 239,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Repeat days selector
+            // Repeat mode selector
             Text(
                 text = "重复",
                 style = MaterialTheme.typography.bodyLarge
             )
             Spacer(modifier = Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                val dayLabels = listOf("一", "二", "三", "四", "五", "六", "日")
-                repeatDays.forEachIndexed { index, isSelected ->
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = {
-                            repeatDays = repeatDays.toMutableList().apply { this[index] = !this[index] }
-                        },
-                        label = { Text(dayLabels[index]) }
-                    )
+            ExposedDropdownMenuBox(
+                expanded = repeatModeExpanded,
+                onExpandedChange = { repeatModeExpanded = !repeatModeExpanded }
+            ) {
+                OutlinedTextField(
+                    value = repeatModeOptions.find { it.first == selectedRepeatMode }?.second ?: "自定义",
+                    onValueChange = {},
+                    readOnly = true,
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = repeatModeExpanded) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                )
+                ExposedDropdownMenu(
+                    expanded = repeatModeExpanded,
+                    onDismissRequest = { repeatModeExpanded = false }
+                ) {
+                    repeatModeOptions.forEach { (mode, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                selectedRepeatMode = mode
+                                repeatModeExpanded = false
+                                // Update repeatDays based on selected mode
+                                repeatDays = when (mode) {
+                                    RepeatMode.ONCE -> List(7) { false }
+                                    RepeatMode.DAILY -> List(7) { true }
+                                    RepeatMode.WEEKDAYS -> listOf(true, true, true, true, true, false, false)
+                                    RepeatMode.WEEKENDS -> listOf(false, false, false, false, false, true, true)
+                                    RepeatMode.CUSTOM -> repeatDays // Keep current selection
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Show day selector only when CUSTOM is selected
+            if (selectedRepeatMode == RepeatMode.CUSTOM) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    val dayLabels = listOf("一", "二", "三", "四", "五", "六", "日")
+                    repeatDays.forEachIndexed { index, isSelected ->
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = {
+                                repeatDays = repeatDays.toMutableList().apply { this[index] = !this[index] }
+                            },
+                            label = { Text(dayLabels[index]) }
+                        )
+                    }
                 }
             }
 
@@ -242,7 +352,7 @@ fun AddAlarmBottomSheet(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Column {
-                    RingMode.entries.forEach { mode ->
+                    RingMode.entries.filter { it != RingMode.LIVE_ACTIVITY }.forEach { mode ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -259,7 +369,7 @@ fun AddAlarmBottomSheet(
                                 text = when (mode) {
                                     RingMode.FULL_SCREEN -> "全屏闹钟"
                                     RingMode.NOTIFICATION -> "通知栏提醒"
-                                    RingMode.LIVE_ACTIVITY -> "灵动岛"
+                                    else -> mode.name
                                 }
                             )
                         }

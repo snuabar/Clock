@@ -11,6 +11,7 @@ data class Alarm(
     val baseType: BaseType,
     val offsetMinutes: Int,
     val repeatDays: String,
+    val repeatMode: RepeatMode = RepeatMode.CUSTOM,
     val ringtoneUri: String? = null,
     val snoozeEnabled: Boolean = true,
     val snoozeMinutes: Int = 5,
@@ -19,6 +20,8 @@ data class Alarm(
     val ringDurationMinutes: Int = 5,
     val crescendoSeconds: Int = 0,
     val skipHolidays: Boolean = false,
+    val customHour: Int = -1,
+    val customMinute: Int = -1,
     val isEnabled: Boolean = true,
     val createdAt: Long = System.currentTimeMillis()
 ) {
@@ -34,7 +37,11 @@ data class Alarm(
 }
 
 enum class BaseType {
-    SUNRISE, SUNSET
+    SUNRISE, SUNSET, CUSTOM
+}
+
+enum class RepeatMode {
+    ONCE, DAILY, WEEKDAYS, WEEKENDS, CUSTOM
 }
 
 enum class RingMode {

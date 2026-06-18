@@ -50,7 +50,10 @@ class AlarmService : Service() {
         val ringDurationMinutes = intent.getIntExtra("ring_duration_minutes", 5)
         val crescendoSeconds = intent.getIntExtra("crescendo_seconds", 0)
 
-        val notification = buildForegroundNotification(alarmName)
+        // Stop any previous alarm state before starting new one (prevents overlapping)
+        stopAlarm()
+
+        val notification = buildForegroundNotification(alarmName, alarmId)
         startForeground(NOTIFICATION_ID, notification)
 
         // Handle alarm based on ring mode
@@ -66,10 +69,10 @@ class AlarmService : Service() {
                 // Only notification, no full-screen activity
             }
             "LIVE_ACTIVITY" -> {
-                // Live Activity not implemented yet, fallback to full-screen
+                // Live Activity / heads-up notification: ring + vibrate, no full-screen
                 startRingtone(ringtoneUri, crescendoSeconds)
                 if (vibrateEnabled) startVibration()
-                showFullScreenAlarm(alarmId, alarmName)
+                // Notification is already shown via startForeground with heads-up priority
             }
         }
 
@@ -94,20 +97,38 @@ class AlarmService : Service() {
         }
     }
 
-    private fun buildForegroundNotification(alarmName: String): android.app.Notification {
+    private fun buildForegroundNotification(alarmName: String, alarmId: String): android.app.Notification {
+        val mainIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
-            Intent(this, MainActivity::class.java),
+            mainIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val dismissIntent = PendingIntent.getBroadcast(
+            this,
+            2,
+            Intent(this, AlarmDismissReceiver::class.java).apply {
+                putExtra("alarm_id", alarmId)
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Alarm Triggered")
+            .setContentTitle("闹钟响了")
             .setContentText(alarmName)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setStyle(NotificationCompat.BigTextStyle().bigText("闹钟 $alarmName 正在响铃"))
+            .addAction(R.drawable.ic_launcher_foreground, "关闭", dismissIntent)
             .build()
     }
 

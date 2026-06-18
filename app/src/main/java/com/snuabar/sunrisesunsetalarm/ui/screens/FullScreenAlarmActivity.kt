@@ -1,5 +1,6 @@
 package com.snuabar.sunrisesunsetalarm.ui.screens
 
+import android.content.Intent
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
@@ -18,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.snuabar.sunrisesunsetalarm.service.AlarmService
 import com.snuabar.sunrisesunsetalarm.service.SnoozeHelper
 import com.snuabar.sunrisesunsetalarm.ui.theme.SunriseSunsetAlarmTheme
 
@@ -79,11 +81,15 @@ class FullScreenAlarmActivity : ComponentActivity() {
 
     private fun dismissAlarm() {
         stopAlarm()
+        // Also stop the background AlarmService
+        stopService(Intent(this, AlarmService::class.java))
         finish()
     }
 
     private fun snoozeAlarm() {
         stopAlarm()
+        // Also stop the background AlarmService before snoozing
+        stopService(Intent(this, com.snuabar.sunrisesunsetalarm.service.AlarmService::class.java))
         SnoozeHelper(this).snoozeAlarm(alarmId, alarmName, 5)
         finish()
     }
