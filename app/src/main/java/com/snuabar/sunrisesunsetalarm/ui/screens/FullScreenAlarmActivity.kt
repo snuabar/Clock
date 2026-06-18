@@ -18,12 +18,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.snuabar.sunrisesunsetalarm.service.SnoozeHelper
 import com.snuabar.sunrisesunsetalarm.ui.theme.SunriseSunsetAlarmTheme
 
 class FullScreenAlarmActivity : ComponentActivity() {
 
     private var ringtone: android.media.Ringtone? = null
     private var vibrator: Vibrator? = null
+    private var alarmId: String = ""
+    private var alarmName: String = "闹钟"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,8 +43,8 @@ class FullScreenAlarmActivity : ComponentActivity() {
             WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
         )
 
-        val alarmName = intent.getStringExtra("alarm_name") ?: "闹钟"
-        val alarmId = intent.getStringExtra("alarm_id") ?: ""
+        alarmId = intent.getStringExtra("alarm_id") ?: ""
+        alarmName = intent.getStringExtra("alarm_name") ?: "闹钟"
 
         startRingtone()
         startVibration()
@@ -50,8 +53,8 @@ class FullScreenAlarmActivity : ComponentActivity() {
             SunriseSunsetAlarmTheme {
                 FullScreenAlarmContent(
                     alarmName = alarmName,
-                    onDismiss = { dismissAlarm(alarmId) },
-                    onSnooze = { snoozeAlarm(alarmId) }
+                    onDismiss = { dismissAlarm() },
+                    onSnooze = { snoozeAlarm() }
                 )
             }
         }
@@ -74,14 +77,14 @@ class FullScreenAlarmActivity : ComponentActivity() {
         }
     }
 
-    private fun dismissAlarm(alarmId: String) {
+    private fun dismissAlarm() {
         stopAlarm()
         finish()
     }
 
-    private fun snoozeAlarm(alarmId: String) {
+    private fun snoozeAlarm() {
         stopAlarm()
-        // TODO: Schedule snooze alarm for 5 minutes later
+        SnoozeHelper(this).snoozeAlarm(alarmId, alarmName, 5)
         finish()
     }
 

@@ -59,15 +59,16 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
     val alarmRepository = remember { (context.applicationContext as SunriseSunsetApplication).alarmRepository }
     val alarms by alarmRepository.getAllAlarms().collectAsStateWithLifecycle(initialValue = emptyList())
 
-    // Initialize default alarms on first launch
+    // Initialize default alarms on first launch only
     LaunchedEffect(Unit) {
-        if (alarms.isEmpty()) {
+        if (!settingsManager.hasInitializedDemoAlarms && alarms.isEmpty()) {
             alarmRepository.insertAlarm(
                 Alarm("1", "晨间唤醒", BaseType.SUNRISE, -30, "true,true,true,true,true,false,false")
             )
             alarmRepository.insertAlarm(
                 Alarm("2", "日落提醒", BaseType.SUNSET, 0, "true,true,true,true,true,true,true")
             )
+            settingsManager.hasInitializedDemoAlarms = true
         }
     }
 
@@ -75,6 +76,8 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
     var editingAlarm by remember { mutableStateOf<Alarm?>(null) }
     var showLocationPicker by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+
+    val alarmManagerHelper = remember { AlarmManagerHelper(context) }
 
     var lastCalibratedAt by remember { mutableStateOf(settingsManager.lastCalibratedAt) }
     val calibrationText = remember(lastCalibratedAt) {
@@ -132,12 +135,18 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
                         onToggle = { isEnabled ->
                             coroutineScope.launch {
                                 alarmRepository.updateAlarm(alarm.copy(isEnabled = isEnabled))
+                                if (isEnabled) {
+                                    alarmManagerHelper.scheduleAlarm(alarm.copy(isEnabled = true), currentLat, currentLng)
+                                } else {
+                                    alarmManagerHelper.cancelAlarm(alarm)
+                                }
                             }
                         },
                         onClick = { editingAlarm = alarm },
                         onDelete = {
                             recentlyDeletedAlarm = alarm
                             coroutineScope.launch {
+                                alarmManagerHelper.cancelAlarm(alarm)
                                 alarmRepository.deleteAlarm(alarm)
                                 val result = snackbarHostState.showSnackbar(
                                     message = "已删除",
@@ -147,6 +156,9 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
                                 if (result == SnackbarResult.ActionPerformed) {
                                     recentlyDeletedAlarm?.let { deletedAlarm ->
                                         alarmRepository.insertAlarm(deletedAlarm)
+                                        if (deletedAlarm.isEnabled) {
+                                            alarmManagerHelper.scheduleAlarm(deletedAlarm, currentLat, currentLng)
+                                        }
                                     }
                                 }
                                 recentlyDeletedAlarm = null
@@ -165,9 +177,13 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
             onSave = { alarm ->
                 coroutineScope.launch {
                     if (editingAlarm != null) {
+                        alarmManagerHelper.cancelAlarm(editingAlarm!!)
                         alarmRepository.updateAlarm(alarm)
                     } else {
                         alarmRepository.insertAlarm(alarm)
+                    }
+                    if (alarm.isEnabled) {
+                        alarmManagerHelper.scheduleAlarm(alarm, currentLat, currentLng)
                     }
                 }
                 showAddSheet = false

@@ -4,7 +4,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import androidx.work.*
+import com.snuabar.sunrisesunsetalarm.SunriseSunsetApplication
 import com.snuabar.sunrisesunsetalarm.service.AlarmManagerHelper
+import com.snuabar.sunrisesunsetalarm.util.SettingsManager
 import java.util.concurrent.TimeUnit
 
 class AlarmRescheduleWorker : BroadcastReceiver() {
@@ -25,8 +27,21 @@ class AlarmRescheduleWork(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        // Reschedule all enabled alarms
-        // This is called daily to ensure alarms are properly set
-        return Result.success()
+        return try {
+            val app = SunriseSunsetApplication.instance
+            val settingsManager = SettingsManager(applicationContext)
+            val alarmRepository = app.alarmRepository
+            val alarmManagerHelper = AlarmManagerHelper(applicationContext)
+            val latitude = settingsManager.currentLatitude
+            val longitude = settingsManager.currentLongitude
+
+            val enabledAlarms = alarmRepository.getEnabledAlarms()
+            for (alarm in enabledAlarms) {
+                alarmManagerHelper.scheduleAlarm(alarm, latitude, longitude)
+            }
+            Result.success()
+        } catch (e: Exception) {
+            Result.failure()
+        }
     }
 }

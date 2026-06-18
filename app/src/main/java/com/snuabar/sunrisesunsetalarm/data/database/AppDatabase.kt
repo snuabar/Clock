@@ -7,7 +7,7 @@ import com.snuabar.sunrisesunsetalarm.data.model.Location
 
 @Database(
     entities = [Alarm::class, Location::class],
-    version = 1,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

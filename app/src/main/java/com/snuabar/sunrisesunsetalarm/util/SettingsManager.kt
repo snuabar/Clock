@@ -32,6 +32,10 @@ class SettingsManager(context: Context) {
         get() = prefs.getString(KEY_LONGITUDE, "116.4074")?.toDoubleOrNull() ?: 116.4074
         set(value) = prefs.edit { putString(KEY_LONGITUDE, value.toString()) }
 
+    var hasInitializedDemoAlarms: Boolean
+        get() = prefs.getBoolean(KEY_INIT_DEMO_ALARMS, false)
+        set(value) = prefs.edit { putBoolean(KEY_INIT_DEMO_ALARMS, value) }
+
     companion object {
         private const val PREFS_NAME = "sunrise_sunset_alarm_prefs"
         private const val KEY_DARK_MODE = "dark_mode"
@@ -39,5 +43,6 @@ class SettingsManager(context: Context) {
         private const val KEY_LOCATION_NAME = "location_name"
         private const val KEY_LATITUDE = "latitude"
         private const val KEY_LONGITUDE = "longitude"
+        private const val KEY_INIT_DEMO_ALARMS = "init_demo_alarms"
     }
 }

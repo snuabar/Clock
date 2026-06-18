@@ -15,6 +15,10 @@ data class Alarm(
     val snoozeEnabled: Boolean = true,
     val snoozeMinutes: Int = 5,
     val ringMode: RingMode = RingMode.FULL_SCREEN,
+    val vibrateEnabled: Boolean = true,
+    val ringDurationMinutes: Int = 5,
+    val crescendoSeconds: Int = 0,
+    val skipHolidays: Boolean = false,
     val isEnabled: Boolean = true,
     val createdAt: Long = System.currentTimeMillis()
 ) {

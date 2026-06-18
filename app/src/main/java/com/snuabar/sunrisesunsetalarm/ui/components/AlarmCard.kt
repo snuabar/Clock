@@ -99,7 +99,22 @@ private fun buildDescription(alarm: Alarm): String {
         alarm.offsetMinutes < 0 -> " ${alarm.offsetMinutes}分钟"
         else -> ""
     }
-    return "$baseText$offsetText"
+    val repeatText = formatRepeatDays(alarm.getRepeatDaysList())
+    return "$baseText$offsetText · $repeatText"
+}
+
+private fun formatRepeatDays(days: List<Boolean>): String {
+    val dayLabels = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
+    val selectedDays = days.mapIndexedNotNull { index, isSelected ->
+        if (isSelected) dayLabels[index] else null
+    }
+    return when {
+        selectedDays.isEmpty() -> "仅一次"
+        selectedDays.size == 7 -> "每天"
+        days.take(5).all { it } && !days[5] && !days[6] -> "工作日"
+        !days[0] && !days[1] && !days[2] && !days[3] && !days[4] && days[5] && days[6] -> "周末"
+        else -> selectedDays.joinToString(", ")
+    }
 }
 
 private fun calculateAlarmTime(alarm: Alarm, latitude: Double, longitude: Double): String {

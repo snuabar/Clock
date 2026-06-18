@@ -12,6 +12,7 @@ class AlarmDismissReceiver : BroadcastReceiver() {
         val notificationHelper = AlarmNotificationHelper(context)
         notificationHelper.cancelNotification()
 
-        // TODO: Mark alarm as dismissed, handle snooze logic if needed
+        // Stop the alarm service
+        context.stopService(Intent(context, AlarmService::class.java))
     }
 }

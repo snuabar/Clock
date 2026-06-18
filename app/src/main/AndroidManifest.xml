@@ -67,13 +67,6 @@
             android:exported="false"
             android:foregroundServiceType="shortService" />
 
-        <!-- WorkManager -->
-        <provider
-            android:name="androidx.startup.InitializationProvider"
-            android:authorities="${applicationId}.androidx-startup"
-            android:exported="false"
-            tools:node="remove" />
-
         <receiver
             android:name=".service.AlarmDismissReceiver"
             android:enabled="true"

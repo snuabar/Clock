@@ -1,14 +1,21 @@
 package com.snuabar.sunrisesunsetalarm.ui.components
 
+import android.media.RingtoneManager
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.snuabar.sunrisesunsetalarm.data.model.Alarm
 import com.snuabar.sunrisesunsetalarm.data.model.BaseType
@@ -22,6 +29,8 @@ fun AddAlarmBottomSheet(
     onDismiss: () -> Unit,
     onSave: (Alarm) -> Unit
 ) {
+    val context = LocalContext.current
+
     // Pre-fill values if editing
     var selectedType by remember { mutableStateOf(alarm?.baseType ?: BaseType.SUNRISE) }
     var alarmName by remember { mutableStateOf(alarm?.name ?: "") }
@@ -30,10 +39,25 @@ fun AddAlarmBottomSheet(
 
     // Advanced settings
     var selectedRingMode by remember { mutableStateOf(alarm?.ringMode ?: RingMode.FULL_SCREEN) }
+    var vibrateEnabled by remember { mutableStateOf(alarm?.vibrateEnabled ?: true) }
+    var ringDurationMinutes by remember { mutableIntStateOf(alarm?.ringDurationMinutes ?: 5) }
+    var crescendoSeconds by remember { mutableIntStateOf(alarm?.crescendoSeconds ?: 0) }
+    var skipHolidays by remember { mutableStateOf(alarm?.skipHolidays ?: false) }
+    var ringtoneUri by remember { mutableStateOf(alarm?.ringtoneUri) }
     var snoozeEnabled by remember { mutableStateOf(alarm?.snoozeEnabled ?: true) }
     var snoozeMinutes by remember { mutableIntStateOf(alarm?.snoozeMinutes ?: 5) }
     var repeatDays by remember {
         mutableStateOf(alarm?.getRepeatDaysList() ?: List(7) { true })
+    }
+
+    // Ringtone picker launcher
+    val ringtoneLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val uri = result.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            ringtoneUri = uri?.toString()
+        }
     }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -67,7 +91,12 @@ fun AddAlarmBottomSheet(
                             baseType = selectedType,
                             offsetMinutes = offsetMinutes,
                             repeatDays = repeatDays.joinToString(",") { it.toString() },
+                            ringtoneUri = ringtoneUri,
                             ringMode = selectedRingMode,
+                            vibrateEnabled = vibrateEnabled,
+                            ringDurationMinutes = ringDurationMinutes,
+                            crescendoSeconds = crescendoSeconds,
+                            skipHolidays = skipHolidays,
                             snoozeEnabled = snoozeEnabled,
                             snoozeMinutes = snoozeMinutes
                         )
@@ -156,6 +185,48 @@ fun AddAlarmBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Ringtone selector
+            Text(
+                text = "铃声",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val intent = RingtoneManager.ACTION_RINGTONE_PICKER
+                        val pickerIntent = android.content.Intent(intent).apply {
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "选择铃声")
+                            ringtoneUri?.let {
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(it))
+                            }
+                        }
+                        ringtoneLauncher.launch(pickerIntent)
+                    },
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.MusicNote, contentDescription = null)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("闹钟铃声", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            text = if (ringtoneUri != null) "已选择" else "默认铃声",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Advanced settings button
             TextButton(onClick = { showAdvanced = !showAdvanced }) {
                 Text(if (showAdvanced) "收起高级设置" else "高级设置")
@@ -188,11 +259,71 @@ fun AddAlarmBottomSheet(
                                 text = when (mode) {
                                     RingMode.FULL_SCREEN -> "全屏闹钟"
                                     RingMode.NOTIFICATION -> "通知栏提醒"
-                                    RingMode.LIVE_ACTIVITY -> "实时活动"
+                                    RingMode.LIVE_ACTIVITY -> "灵动岛"
                                 }
                             )
                         }
                     }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Vibrate settings
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("振动", style = MaterialTheme.typography.bodyLarge)
+                    Switch(
+                        checked = vibrateEnabled,
+                        onCheckedChange = { vibrateEnabled = it }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Ring duration settings
+                Text(
+                    text = "响铃时长: $ringDurationMinutes 分钟",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Slider(
+                    value = ringDurationMinutes.toFloat(),
+                    onValueChange = { ringDurationMinutes = it.toInt() },
+                    valueRange = 1f..30f,
+                    steps = 29,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Crescendo settings
+                Text(
+                    text = "渐强时长: $crescendoSeconds 秒",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Slider(
+                    value = crescendoSeconds.toFloat(),
+                    onValueChange = { crescendoSeconds = it.toInt() },
+                    valueRange = 0f..60f,
+                    steps = 59,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Skip holidays settings
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("节假日跳过", style = MaterialTheme.typography.bodyLarge)
+                    Switch(
+                        checked = skipHolidays,
+                        onCheckedChange = { skipHolidays = it }
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
