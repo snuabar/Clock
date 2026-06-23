@@ -19,6 +19,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.snuabar.sunrisesunsetalarm.R
 import com.snuabar.sunrisesunsetalarm.data.model.Alarm
 import com.snuabar.sunrisesunsetalarm.data.model.BaseType
 import com.snuabar.sunrisesunsetalarm.data.model.RepeatMode
@@ -67,11 +69,11 @@ fun AddAlarmBottomSheet(
 
     // Repeat mode dropdown
     val repeatModeOptions = listOf(
-        RepeatMode.ONCE to "仅一次",
-        RepeatMode.DAILY to "每天",
-        RepeatMode.WEEKDAYS to "工作日",
-        RepeatMode.WEEKENDS to "周末",
-        RepeatMode.CUSTOM to "自定义"
+        RepeatMode.ONCE to stringResource(R.string.repeat_once),
+        RepeatMode.DAILY to stringResource(R.string.repeat_daily),
+        RepeatMode.WEEKDAYS to stringResource(R.string.repeat_weekdays),
+        RepeatMode.WEEKENDS to stringResource(R.string.repeat_weekends),
+        RepeatMode.CUSTOM to stringResource(R.string.repeat_custom)
     )
     var repeatModeExpanded by remember { mutableStateOf(false) }
 
@@ -115,14 +117,14 @@ fun AddAlarmBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (alarm != null) "编辑闹钟" else "添加闹钟",
+                    text = if (alarm != null) stringResource(R.string.edit_alarm) else stringResource(R.string.add_alarm),
                     style = MaterialTheme.typography.headlineSmall
                 )
                 TextButton(
                     onClick = {
                         val savedAlarm = Alarm(
                             id = alarm?.id ?: UUID.randomUUID().toString(),
-                            name = alarmName.ifEmpty { "新闹钟" },
+                            name = alarmName.ifEmpty { context.getString(R.string.default_alarm_name) },
                             baseType = selectedType,
                             offsetMinutes = offsetMinutes,
                             repeatDays = repeatDays.joinToString(",") { it.toString() },
@@ -142,7 +144,7 @@ fun AddAlarmBottomSheet(
                         onSave(savedAlarm)
                     }
                 ) {
-                    Text("保存")
+                    Text(stringResource(R.string.action_save))
                 }
             }
 
@@ -152,7 +154,7 @@ fun AddAlarmBottomSheet(
             OutlinedTextField(
                 value = alarmName,
                 onValueChange = { alarmName = it },
-                label = { Text("闹钟名称") },
+                label = { Text(stringResource(R.string.alarm_name_label)) },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -160,7 +162,7 @@ fun AddAlarmBottomSheet(
 
             // Base type selector
             Text(
-                text = "基准时间",
+                text = stringResource(R.string.base_time),
                 style = MaterialTheme.typography.bodyLarge
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -178,9 +180,9 @@ fun AddAlarmBottomSheet(
                         )
                         Text(
                             text = when (type) {
-                                BaseType.SUNRISE -> "日出"
-                                BaseType.SUNSET -> "日落"
-                                BaseType.CUSTOM -> "自定义"
+                                BaseType.SUNRISE -> stringResource(R.string.base_type_sunrise)
+                                BaseType.SUNSET -> stringResource(R.string.base_type_sunset)
+                                BaseType.CUSTOM -> stringResource(R.string.base_type_custom)
                             }
                         )
                     }
@@ -193,7 +195,7 @@ fun AddAlarmBottomSheet(
             if (selectedType == BaseType.CUSTOM) {
                 // Custom time picker - click to open TimePickerDialog
                 Text(
-                    text = "响铃时间",
+                    text = stringResource(R.string.ring_time),
                     style = MaterialTheme.typography.bodyLarge
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -221,7 +223,7 @@ fun AddAlarmBottomSheet(
             } else {
                 // Offset slider for sunrise/sunset
                 Text(
-                    text = "偏移量: ${formatOffset(offsetMinutes)}",
+                    text = stringResource(R.string.offset_format, formatOffset(offsetMinutes)),
                     style = MaterialTheme.typography.bodyLarge
                 )
                 Slider(
@@ -237,7 +239,7 @@ fun AddAlarmBottomSheet(
 
             // Repeat mode selector
             Text(
-                text = "重复",
+                text = stringResource(R.string.repeat),
                 style = MaterialTheme.typography.bodyLarge
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -246,7 +248,7 @@ fun AddAlarmBottomSheet(
                 onExpandedChange = { repeatModeExpanded = !repeatModeExpanded }
             ) {
                 OutlinedTextField(
-                    value = repeatModeOptions.find { it.first == selectedRepeatMode }?.second ?: "自定义",
+                    value = repeatModeOptions.find { it.first == selectedRepeatMode }?.second ?: stringResource(R.string.repeat_custom),
                     onValueChange = {},
                     readOnly = true,
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = repeatModeExpanded) },
@@ -280,7 +282,15 @@ fun AddAlarmBottomSheet(
             if (selectedRepeatMode == RepeatMode.CUSTOM) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    val dayLabels = listOf("一", "二", "三", "四", "五", "六", "日")
+                    val dayLabels = listOf(
+                        stringResource(R.string.day_mon_short),
+                        stringResource(R.string.day_tue_short),
+                        stringResource(R.string.day_wed_short),
+                        stringResource(R.string.day_thu_short),
+                        stringResource(R.string.day_fri_short),
+                        stringResource(R.string.day_sat_short),
+                        stringResource(R.string.day_sun_short)
+                    )
                     repeatDays.forEachIndexed { index, isSelected ->
                         FilterChip(
                             selected = isSelected,
@@ -297,7 +307,7 @@ fun AddAlarmBottomSheet(
 
             // Ringtone selector
             Text(
-                text = "铃声",
+                text = stringResource(R.string.ringtone),
                 style = MaterialTheme.typography.bodyLarge
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -308,7 +318,7 @@ fun AddAlarmBottomSheet(
                         val intent = RingtoneManager.ACTION_RINGTONE_PICKER
                         val pickerIntent = android.content.Intent(intent).apply {
                             putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
-                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "选择铃声")
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, context.getString(R.string.select_ringtone))
                             ringtoneUri?.let {
                                 putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(it))
                             }
@@ -326,9 +336,9 @@ fun AddAlarmBottomSheet(
                     Icon(Icons.Default.MusicNote, contentDescription = null)
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("闹钟铃声", style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.alarm_ringtone), style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            text = if (ringtoneUri != null) "已选择" else "默认铃声",
+                            text = if (ringtoneUri != null) stringResource(R.string.ringtone_selected) else stringResource(R.string.ringtone_default),
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -339,7 +349,7 @@ fun AddAlarmBottomSheet(
 
             // Advanced settings button
             TextButton(onClick = { showAdvanced = !showAdvanced }) {
-                Text(if (showAdvanced) "收起高级设置" else "高级设置")
+                Text(if (showAdvanced) stringResource(R.string.hide_advanced) else stringResource(R.string.show_advanced))
             }
 
             if (showAdvanced) {
@@ -347,7 +357,7 @@ fun AddAlarmBottomSheet(
 
                 // Ring mode selector
                 Text(
-                    text = "响铃模式",
+                    text = stringResource(R.string.ring_mode),
                     style = MaterialTheme.typography.bodyLarge
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -367,8 +377,8 @@ fun AddAlarmBottomSheet(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = when (mode) {
-                                    RingMode.FULL_SCREEN -> "全屏闹钟"
-                                    RingMode.NOTIFICATION -> "通知栏提醒"
+                                    RingMode.FULL_SCREEN -> stringResource(R.string.ring_mode_fullscreen)
+                                    RingMode.NOTIFICATION -> stringResource(R.string.ring_mode_notification)
                                     else -> mode.name
                                 }
                             )
@@ -384,7 +394,7 @@ fun AddAlarmBottomSheet(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("振动", style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.vibrate), style = MaterialTheme.typography.bodyLarge)
                     Switch(
                         checked = vibrateEnabled,
                         onCheckedChange = { vibrateEnabled = it }
@@ -395,7 +405,7 @@ fun AddAlarmBottomSheet(
 
                 // Ring duration settings
                 Text(
-                    text = "响铃时长: $ringDurationMinutes 分钟",
+                    text = stringResource(R.string.ring_duration_format, ringDurationMinutes),
                     style = MaterialTheme.typography.bodyLarge
                 )
                 Slider(
@@ -410,7 +420,7 @@ fun AddAlarmBottomSheet(
 
                 // Crescendo settings
                 Text(
-                    text = "渐强时长: $crescendoSeconds 秒",
+                    text = stringResource(R.string.crescendo_format, crescendoSeconds),
                     style = MaterialTheme.typography.bodyLarge
                 )
                 Slider(
@@ -429,7 +439,7 @@ fun AddAlarmBottomSheet(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("节假日跳过", style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.skip_holidays), style = MaterialTheme.typography.bodyLarge)
                     Switch(
                         checked = skipHolidays,
                         onCheckedChange = { skipHolidays = it }
@@ -444,7 +454,7 @@ fun AddAlarmBottomSheet(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("启用贪睡", style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.snooze_enabled), style = MaterialTheme.typography.bodyLarge)
                     Switch(
                         checked = snoozeEnabled,
                         onCheckedChange = { snoozeEnabled = it }
@@ -454,7 +464,7 @@ fun AddAlarmBottomSheet(
                 if (snoozeEnabled) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "贪睡时长: $snoozeMinutes 分钟",
+                        text = stringResource(R.string.snooze_duration_format, snoozeMinutes),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Slider(
@@ -470,10 +480,11 @@ fun AddAlarmBottomSheet(
     }
 }
 
+@Composable
 private fun formatOffset(minutes: Int): String {
     return when {
-        minutes > 0 -> "延后 $minutes 分钟"
-        minutes < 0 -> "提前 ${-minutes} 分钟"
-        else -> "无偏移"
+        minutes > 0 -> stringResource(R.string.offset_delayed, minutes)
+        minutes < 0 -> stringResource(R.string.offset_ahead, -minutes)
+        else -> stringResource(R.string.offset_none)
     }
 }

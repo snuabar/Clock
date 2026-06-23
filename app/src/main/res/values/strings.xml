@@ -1,4 +1,114 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">日出日落闹钟</string>
+    <string name="app_name">Sunrise Sunset Alarm</string>
+
+    <!-- Top App Bar -->
+    <string name="top_bar_title">Sunrise Sunset Alarm</string>
+    <string name="cd_settings">Settings</string>
+    <string name="cd_add_alarm">Add Alarm</string>
+
+    <!-- Sun Times Header -->
+    <string name="label_sunrise">Sunrise</string>
+    <string name="label_sunset">Sunset</string>
+    <string name="calibration_none">Not Calibrated</string>
+    <string name="calibration_last">Last Calibration: %1$s</string>
+
+    <!-- Snackbar Messages -->
+    <string name="snackbar_exact_alarm_permission">Exact alarm permission is required for alarms to fire on time</string>
+    <string name="action_go_to_settings">Go to Settings</string>
+    <string name="snackbar_location_permission">Location permission is required</string>
+    <string name="snackbar_notification_permission">Notification permission not granted, alarm reminders may not display properly</string>
+    <string name="snackbar_alarm_deleted">Deleted</string>
+    <string name="action_undo">Undo</string>
+    <string name="snackbar_location_changed">Location changed, alarm times updated</string>
+    <string name="snackbar_calibration_done">Calibration complete</string>
+
+    <!-- Settings Sheet -->
+    <string name="settings_title">Settings</string>
+    <string name="action_close">Close</string>
+    <string name="dark_mode_title">Dark Mode</string>
+    <string name="dark_mode_system">Follow System</string>
+    <string name="dark_mode_light">Light</string>
+    <string name="dark_mode_dark">Dark</string>
+    <string name="location_settings">Location Settings</string>
+    <string name="current_city">Current City</string>
+    <string name="time_calibration">Time Calibration</string>
+    <string name="action_calibrate_now">Calibrate Now</string>
+    <string name="about">About</string>
+    <string name="version_format">Version %1$s</string>
+
+    <!-- Add/Edit Alarm Bottom Sheet -->
+    <string name="edit_alarm">Edit Alarm</string>
+    <string name="add_alarm">Add Alarm</string>
+    <string name="alarm_name_label">Alarm Name</string>
+    <string name="base_time">Base Time</string>
+    <string name="base_type_sunrise">Sunrise</string>
+    <string name="base_type_sunset">Sunset</string>
+    <string name="base_type_custom">Custom</string>
+    <string name="ring_time">Ring Time</string>
+    <string name="offset_format">Offset: %1$s</string>
+    <string name="offset_ahead">Ahead %1$d min</string>
+    <string name="offset_delayed">Delayed %1$d min</string>
+    <string name="offset_none">No Offset</string>
+    <string name="repeat">Repeat</string>
+    <string name="repeat_once">Once</string>
+    <string name="repeat_daily">Daily</string>
+    <string name="repeat_weekdays">Weekdays</string>
+    <string name="repeat_weekends">Weekends</string>
+    <string name="repeat_custom">Custom</string>
+    <string name="ringtone">Ringtone</string>
+    <string name="alarm_ringtone">Alarm Ringtone</string>
+    <string name="ringtone_selected">Selected</string>
+    <string name="ringtone_default">Default Ringtone</string>
+    <string name="hide_advanced">Hide Advanced</string>
+    <string name="show_advanced">Advanced</string>
+    <string name="ring_mode">Ring Mode</string>
+    <string name="ring_mode_fullscreen">Full Screen Alarm</string>
+    <string name="ring_mode_notification">Notification</string>
+    <string name="vibrate">Vibrate</string>
+    <string name="ring_duration_format">Ring Duration: %1$d min</string>
+    <string name="crescendo_format">Crescendo: %1$d sec</string>
+    <string name="skip_holidays">Skip Holidays</string>
+    <string name="snooze_enabled">Enable Snooze</string>
+    <string name="snooze_duration_format">Snooze Duration: %1$d min</string>
+    <string name="action_save">Save</string>
+    <string name="default_alarm_name">New Alarm</string>
+    <string name="select_ringtone">Select Ringtone</string>
+    <string name="minute_unit">min</string>
+    <string name="second_unit">sec</string>
+
+    <!-- Alarm Card -->
+    <string name="cd_delete">Delete</string>
+    <string name="day_mon">Mon</string>
+    <string name="day_tue">Tue</string>
+    <string name="day_wed">Wed</string>
+    <string name="day_thu">Thu</string>
+    <string name="day_fri">Fri</string>
+    <string name="day_sat">Sat</string>
+    <string name="day_sun">Sun</string>
+
+    <!-- Location Picker -->
+    <string name="select_city">Select City</string>
+    <string name="search_city">Search City</string>
+    <string name="locating">Locating…</string>
+    <string name="use_current_location">Use Current Location</string>
+    <string name="no_matching_city">No matching city found</string>
+    <string name="local_data">Local Data</string>
+    <string name="network_search">Network Search</string>
+    <string name="current_location">Current Location</string>
+
+    <!-- Full Screen Alarm -->
+    <string name="default_alarm_name_short">Alarm</string>
+    <string name="cd_snooze">Snooze</string>
+    <string name="snooze_format">Snooze (5min)</string>
+    <string name="dismiss_alarm">Dismiss Alarm</string>
+
+    <!-- Short day labels for AddAlarmBottomSheet -->
+    <string name="day_mon_short">M</string>
+    <string name="day_tue_short">T</string>
+    <string name="day_wed_short">W</string>
+    <string name="day_thu_short">T</string>
+    <string name="day_fri_short">F</string>
+    <string name="day_sat_short">S</string>
+    <string name="day_sun_short">S</string>
 </resources>

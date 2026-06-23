@@ -20,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.snuabar.sunrisesunsetalarm.service.AlarmService
+import androidx.compose.ui.res.stringResource
+import com.snuabar.sunrisesunsetalarm.R
 import com.snuabar.sunrisesunsetalarm.service.SnoozeHelper
 import com.snuabar.sunrisesunsetalarm.ui.theme.SunriseSunsetAlarmTheme
 
@@ -46,7 +48,7 @@ class FullScreenAlarmActivity : ComponentActivity() {
         )
 
         alarmId = intent.getStringExtra("alarm_id") ?: ""
-        alarmName = intent.getStringExtra("alarm_name") ?: "闹钟"
+        alarmName = intent.getStringExtra("alarm_name") ?: getString(R.string.default_alarm_name_short)
 
         startRingtone()
         startVibration()
@@ -147,9 +149,9 @@ private fun FullScreenAlarmContent(
                     .fillMaxWidth()
                     .height(56.dp)
             ) {
-                Icon(Icons.Default.Snooze, contentDescription = "贪睡")
+                Icon(Icons.Default.Snooze, contentDescription = stringResource(R.string.cd_snooze))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("贪睡 (5分钟)")
+                Text(stringResource(R.string.snooze_format))
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -164,7 +166,7 @@ private fun FullScreenAlarmContent(
                     containerColor = MaterialTheme.colorScheme.error
                 )
             ) {
-                Text("关闭闹钟")
+                Text(stringResource(R.string.dismiss_alarm))
             }
         }
     }
