@@ -1,5 +1,9 @@
 package com.snuabar.sunrisesunsetalarm.ui.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
@@ -8,14 +12,22 @@ import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.WbTwilight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.snuabar.sunrisesunsetalarm.R
 import com.snuabar.sunrisesunsetalarm.data.model.Alarm
 import com.snuabar.sunrisesunsetalarm.data.model.BaseType
 import com.snuabar.sunrisesunsetalarm.data.model.RepeatMode
 import com.snuabar.sunrisesunsetalarm.util.SunCalcUtil
+import kotlinx.coroutines.launch
 import java.util.Calendar
 
 @Composable
@@ -23,78 +35,146 @@ fun AlarmCard(
     alarm: Alarm,
     latitude: Double,
     longitude: Double,
+    isExpanded: Boolean,
+    onExpandChanged: (Boolean) -> Unit,
     onToggle: (Boolean) -> Unit,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
     val alarmTime = calculateAlarmTime(alarm, latitude, longitude)
+    val scope = rememberCoroutineScope()
+    val offsetX = remember { Animatable(0f) }
+    val maxSwipePx = with(androidx.compose.ui.platform.LocalDensity.current) { 80.dp.toPx() }
 
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+    // Sync with external expand state
+    LaunchedEffect(isExpanded) {
+        val target = if (isExpanded) -maxSwipePx else 0f
+        if (kotlin.math.abs(offsetX.value - target) > 1f) {
+            offsetX.animateTo(target)
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        // 背景层（红色删除区域）
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(
+                    MaterialTheme.colorScheme.error,
+                    shape = MaterialTheme.shapes.medium
+                ),
+            contentAlignment = Alignment.CenterEnd
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                val iconData = when (alarm.baseType) {
-                    BaseType.SUNRISE -> Triple(Icons.Default.WbSunny, "日出", MaterialTheme.colorScheme.primary)
-                    BaseType.SUNSET -> Triple(Icons.Default.WbTwilight, "日落", MaterialTheme.colorScheme.tertiary)
-                    BaseType.CUSTOM -> Triple(Icons.Default.AccessTime, "自定义", MaterialTheme.colorScheme.secondary)
-                }
+            IconButton(
+                onClick = {
+                    onExpandChanged(false)
+                    onDelete()
+                },
+                modifier = Modifier.padding(end = 16.dp)
+            ) {
                 Icon(
-                    imageVector = iconData.first,
-                    contentDescription = iconData.second,
-                    modifier = Modifier.size(32.dp),
-                    tint = iconData.third
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = stringResource(R.string.cd_delete),
+                    tint = MaterialTheme.colorScheme.onError
                 )
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column {
-                    Text(
-                        text = alarm.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = buildDescription(alarm),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = alarmTime,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
+        }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        // 前景层（闹钟卡片）
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(offsetX.value.toInt(), 0) }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            scope.launch {
+                                if (offsetX.value < -maxSwipePx / 2) {
+                                    offsetX.animateTo(-maxSwipePx)
+                                    onExpandChanged(true)
+                                } else {
+                                    offsetX.animateTo(0f)
+                                    onExpandChanged(false)
+                                }
+                            }
+                        },
+                        onHorizontalDrag = { change, dragAmount ->
+                            change.consume()
+                            val newOffset = (offsetX.value + dragAmount).coerceIn(-maxSwipePx, 0f)
+                            scope.launch { offsetX.snapTo(newOffset) }
+                        }
+                    )
+                },
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        if (isExpanded) {
+                            onExpandChanged(false)
+                        } else {
+                            onClick()
+                        }
+                    }
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    val iconData = when (alarm.baseType) {
+                        BaseType.SUNRISE -> Triple(Icons.Default.WbSunny, stringResource(R.string.base_type_sunrise), MaterialTheme.colorScheme.primary)
+                        BaseType.SUNSET -> Triple(Icons.Default.WbTwilight, stringResource(R.string.base_type_sunset), MaterialTheme.colorScheme.tertiary)
+                        BaseType.CUSTOM -> Triple(Icons.Default.AccessTime, stringResource(R.string.base_type_custom), MaterialTheme.colorScheme.secondary)
+                    }
+                    Icon(
+                        imageVector = iconData.first,
+                        contentDescription = iconData.second,
+                        modifier = Modifier.size(32.dp),
+                        tint = iconData.third
+                    )
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column {
+                        Text(
+                            text = alarm.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = buildDescription(alarm),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = alarmTime,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
                 Switch(
                     checked = alarm.isEnabled,
-                    onCheckedChange = onToggle
+                    onCheckedChange = { enabled ->
+                        if (isExpanded) {
+                            onExpandChanged(false)
+                        }
+                        onToggle(enabled)
+                    }
                 )
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "删除",
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                }
             }
         }
     }
 }
 
+@Composable
 private fun buildDescription(alarm: Alarm): String {
     val baseText = when (alarm.baseType) {
-        BaseType.SUNRISE -> "日出"
-        BaseType.SUNSET -> "日落"
-        BaseType.CUSTOM -> "自定义"
+        BaseType.SUNRISE -> stringResource(R.string.base_type_sunrise)
+        BaseType.SUNSET -> stringResource(R.string.base_type_sunset)
+        BaseType.CUSTOM -> stringResource(R.string.base_type_custom)
     }
     val offsetText = when {
         alarm.baseType == BaseType.CUSTOM -> "" // Custom alarms don't show offset
@@ -106,21 +186,30 @@ private fun buildDescription(alarm: Alarm): String {
     return "$baseText$offsetText · $repeatText"
 }
 
+@Composable
 private fun formatRepeatMode(alarm: Alarm): String {
     return when (alarm.repeatMode) {
-        RepeatMode.ONCE -> "仅一次"
-        RepeatMode.DAILY -> "每天"
-        RepeatMode.WEEKDAYS -> "工作日"
-        RepeatMode.WEEKENDS -> "周末"
+        RepeatMode.ONCE -> stringResource(R.string.repeat_once)
+        RepeatMode.DAILY -> stringResource(R.string.repeat_daily)
+        RepeatMode.WEEKDAYS -> stringResource(R.string.repeat_weekdays)
+        RepeatMode.WEEKENDS -> stringResource(R.string.repeat_weekends)
         RepeatMode.CUSTOM -> {
-            val dayLabels = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
+            val dayLabels = listOf(
+                stringResource(R.string.day_mon),
+                stringResource(R.string.day_tue),
+                stringResource(R.string.day_wed),
+                stringResource(R.string.day_thu),
+                stringResource(R.string.day_fri),
+                stringResource(R.string.day_sat),
+                stringResource(R.string.day_sun)
+            )
             val days = alarm.getRepeatDaysList()
             val selectedDays = days.mapIndexedNotNull { index, isSelected ->
                 if (isSelected) dayLabels[index] else null
             }
             when {
-                selectedDays.isEmpty() -> "仅一次"
-                selectedDays.size == 7 -> "每天"
+                selectedDays.isEmpty() -> stringResource(R.string.repeat_once)
+                selectedDays.size == 7 -> stringResource(R.string.repeat_daily)
                 else -> selectedDays.joinToString(", ")
             }
         }

@@ -14,6 +14,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.snuabar.sunrisesunsetalarm.R
 import com.snuabar.sunrisesunsetalarm.data.City
 import com.snuabar.sunrisesunsetalarm.data.CityData
 import com.snuabar.sunrisesunsetalarm.util.LocationManagerHelper
@@ -112,11 +114,11 @@ fun LocationPicker(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "选择城市",
+                    text = stringResource(R.string.select_city),
                     style = MaterialTheme.typography.headlineSmall
                 )
                 TextButton(onClick = onDismiss) {
-                    Text("关闭")
+                    Text(stringResource(R.string.action_close))
                 }
             }
 
@@ -126,7 +128,7 @@ fun LocationPicker(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                label = { Text("搜索城市") },
+                label = { Text(stringResource(R.string.search_city)) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
                     if (isSearching) {
@@ -156,10 +158,10 @@ fun LocationPicker(
                                             address.locality
                                                 ?: address.subAdminArea
                                                 ?: address.adminArea
-                                                ?: "当前位置"
-                                        } ?: "当前位置"
+                                                ?: context.getString(R.string.current_location)
+                                        } ?: context.getString(R.string.current_location)
                                     } catch (_: Exception) {
-                                        "当前位置"
+                                        context.getString(R.string.current_location)
                                     }
                                 }
                                 val city = City(
@@ -190,7 +192,7 @@ fun LocationPicker(
                         Icon(Icons.Default.LocationOn, contentDescription = null)
                     }
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text(if (isLocating) "定位中..." else "使用当前位置")
+                    Text(if (isLocating) stringResource(R.string.locating) else stringResource(R.string.use_current_location))
                 }
             }
 
@@ -198,7 +200,7 @@ fun LocationPicker(
 
             if ((filteredCities.isEmpty() && geocoderResults.isEmpty()) && !isSearching) {
                 Text(
-                    text = "未找到匹配的城市",
+                    text = stringResource(R.string.no_matching_city),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -208,7 +210,7 @@ fun LocationPicker(
                     if (searchQuery.isNotBlank() && filteredCities.isNotEmpty()) {
                         item {
                             Text(
-                                text = "本地数据",
+                                text = stringResource(R.string.local_data),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -221,7 +223,7 @@ fun LocationPicker(
                     if (searchQuery.isNotBlank() && geocoderResults.isNotEmpty()) {
                         item {
                             Text(
-                                text = "网络搜索",
+                                text = stringResource(R.string.network_search),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)

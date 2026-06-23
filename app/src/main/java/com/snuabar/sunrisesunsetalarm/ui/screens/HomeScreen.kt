@@ -9,37 +9,73 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.snuabar.sunrisesunsetalarm.SunriseSunsetApplication
-import com.snuabar.sunrisesunsetalarm.data.repository.AlarmRepository
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
+import com.snuabar.sunrisesunsetalarm.R
+import com.snuabar.sunrisesunsetalarm.SunriseSunsetApplication
 import com.snuabar.sunrisesunsetalarm.data.model.Alarm
 import com.snuabar.sunrisesunsetalarm.data.model.BaseType
 import com.snuabar.sunrisesunsetalarm.data.model.DarkMode
 import com.snuabar.sunrisesunsetalarm.data.model.RepeatMode
+import com.snuabar.sunrisesunsetalarm.service.AlarmManagerHelper
 import com.snuabar.sunrisesunsetalarm.ui.components.AddAlarmBottomSheet
 import com.snuabar.sunrisesunsetalarm.ui.components.AlarmCard
 import com.snuabar.sunrisesunsetalarm.ui.components.LocationPicker
 import com.snuabar.sunrisesunsetalarm.util.SettingsManager
-import com.snuabar.sunrisesunsetalarm.service.AlarmManagerHelper
 import com.snuabar.sunrisesunsetalarm.util.SunCalcUtil
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,7 +119,17 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
     var showLocationPicker by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
 
+    // Track which alarm card is currently expanded for swipe-delete
+    var expandedAlarmId by remember { mutableStateOf<String?>(null) }
+
+    val listState = rememberLazyListState()
+
     val alarmManagerHelper = remember { AlarmManagerHelper(context) }
+
+    // Auto-collapse when scrolling
+    if (listState.isScrollInProgress && expandedAlarmId != null) {
+        expandedAlarmId = null
+    }
 
     // Check if exact alarm permission is granted (Android 12+)
     fun canScheduleExactAlarms(): Boolean {
@@ -99,8 +145,8 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
     suspend fun requestExactAlarmPermission(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !canScheduleExactAlarms()) {
             val result = snackbarHostState.showSnackbar(
-                message = "需要开启精确闹钟权限，否则闹钟可能无法准时响起",
-                actionLabel = "去设置",
+                message = context.getString(R.string.snackbar_exact_alarm_permission),
+                actionLabel = context.getString(R.string.action_go_to_settings),
                 duration = SnackbarDuration.Long
             )
             if (result == SnackbarResult.ActionPerformed) {
@@ -113,10 +159,8 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
     }
 
     var lastCalibratedAt by remember { mutableStateOf(settingsManager.lastCalibratedAt) }
-    val calibrationText = remember(lastCalibratedAt) {
-        if (lastCalibratedAt == 0L) "未校准"
-        else "上次校准：${SimpleDateFormat("MM月dd日 HH:mm", Locale.getDefault()).format(Date(lastCalibratedAt))}"
-    }
+    val calibrationText = if (lastCalibratedAt == 0L) stringResource(R.string.calibration_none)
+    else stringResource(R.string.calibration_last, SimpleDateFormat("MM月dd日 HH:mm", Locale.getDefault()).format(Date(lastCalibratedAt)))
 
     // Track recently deleted alarm for undo
     var recentlyDeletedAlarm by remember { mutableStateOf<Alarm?>(null) }
@@ -125,7 +169,7 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         if (!permissions.values.all { it }) {
-            coroutineScope.launch { snackbarHostState.showSnackbar("需要位置权限") }
+            coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_location_permission)) }
         }
     }
 
@@ -135,7 +179,7 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
     ) { isGranted ->
         if (!isGranted) {
             coroutineScope.launch {
-                snackbarHostState.showSnackbar("未授予通知权限，闹钟提醒可能无法正常显示")
+                snackbarHostState.showSnackbar(context.getString(R.string.snackbar_notification_permission))
             }
         }
     }
@@ -150,17 +194,17 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("日出日落闹钟") },
+                title = { Text(stringResource(R.string.top_bar_title)) },
                 actions = {
-                    IconButton(onClick = { showSettings = true }) {
-                        Icon(Icons.Default.Settings, contentDescription = "设置")
+                    IconButton(onClick = { expandedAlarmId = null; showSettings = true }) {
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_settings))
                     }
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddSheet = true }) {
-                Icon(Icons.Default.Add, contentDescription = "添加闹钟")
+            FloatingActionButton(onClick = { expandedAlarmId = null; showAddSheet = true }) {
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.cd_add_alarm))
             }
         }
     ) { paddingValues ->
@@ -169,11 +213,12 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
                 locationName = currentLocation,
                 sunriseTime = sunriseTime,
                 sunsetTime = sunsetTime,
-                onLocationClick = { showLocationPicker = true }
+                onLocationClick = { expandedAlarmId = null; showLocationPicker = true }
             )
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
+                state = listState,
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -182,6 +227,10 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
                         alarm = alarm,
                         latitude = currentLat,
                         longitude = currentLng,
+                        isExpanded = expandedAlarmId == alarm.id,
+                        onExpandChanged = { expanded ->
+                            expandedAlarmId = if (expanded) alarm.id else null
+                        },
                         onToggle = { isEnabled ->
                             coroutineScope.launch {
                                 alarmRepository.updateAlarm(alarm.copy(isEnabled = isEnabled))
@@ -201,8 +250,8 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
                                 alarmManagerHelper.cancelAlarm(alarm)
                                 alarmRepository.deleteAlarm(alarm)
                                 val result = snackbarHostState.showSnackbar(
-                                    message = "已删除",
-                                    actionLabel = "撤销",
+                                    message = context.getString(R.string.snackbar_alarm_deleted),
+                                    actionLabel = context.getString(R.string.action_undo),
                                     duration = SnackbarDuration.Short
                                 )
                                 if (result == SnackbarResult.ActionPerformed) {
@@ -258,13 +307,12 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
                 showLocationPicker = false
 
                 // Reschedule all enabled alarms with new location
-                val alarmManagerHelper = AlarmManagerHelper(context)
                 alarms.filter { it.isEnabled }.forEach { alarm ->
                     alarmManagerHelper.cancelAlarm(alarm)
                     alarmManagerHelper.scheduleAlarm(alarm, currentLat, currentLng)
                 }
                 coroutineScope.launch {
-                    snackbarHostState.showSnackbar("位置已切换，闹钟时间已更新")
+                    snackbarHostState.showSnackbar(context.getString(R.string.snackbar_location_changed))
                 }
             },
             onDismiss = { showLocationPicker = false },
@@ -288,7 +336,7 @@ fun HomeScreen(settingsManager: SettingsManager, onThemeChange: (DarkMode) -> Un
             onCalibrate = {
                 lastCalibratedAt = System.currentTimeMillis()
                 settingsManager.lastCalibratedAt = lastCalibratedAt
-                coroutineScope.launch { snackbarHostState.showSnackbar("校准完成") }
+                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_calibration_done)) }
             },
             onDismiss = { showSettings = false }
         )
@@ -310,8 +358,8 @@ private fun SunTimesHeader(locationName: String, sunriseTime: String, sunsetTime
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                SunTimeItem("日出", sunriseTime)
-                SunTimeItem("日落", sunsetTime)
+                SunTimeItem(stringResource(R.string.label_sunrise), sunriseTime)
+                SunTimeItem(stringResource(R.string.label_sunset), sunsetTime)
             }
         }
     }
@@ -342,29 +390,29 @@ private fun SettingsSheet(
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("设置", style = MaterialTheme.typography.headlineSmall)
-                TextButton(onClick = onDismiss) { Text("关闭") }
+                Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.headlineSmall)
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Text("深色模式", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.dark_mode_title), style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
             DarkMode.entries.forEach { mode ->
                 Row(modifier = Modifier.fillMaxWidth().clickable { onDarkModeChange(mode) }, verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected = currentDarkMode == mode, onClick = { onDarkModeChange(mode) })
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(when (mode) {
-                        DarkMode.SYSTEM -> "跟随系统"
-                        DarkMode.LIGHT -> "浅色模式"
-                        DarkMode.DARK -> "深色模式"
+                        DarkMode.SYSTEM -> stringResource(R.string.dark_mode_system)
+                        DarkMode.LIGHT -> stringResource(R.string.dark_mode_light)
+                        DarkMode.DARK -> stringResource(R.string.dark_mode_dark)
                     })
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Text("位置设置", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.location_settings), style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
             Card(modifier = Modifier.fillMaxWidth().clickable { onLocationClick() },
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -372,7 +420,7 @@ private fun SettingsSheet(
                     Icon(Icons.Default.LocationOn, contentDescription = null)
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("当前城市", style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.current_city), style = MaterialTheme.typography.bodyMedium)
                         Text(currentLocation, style = MaterialTheme.typography.bodySmall)
                     }
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
@@ -381,21 +429,21 @@ private fun SettingsSheet(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Text("时间校准", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.time_calibration), style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(calibrationText, style = MaterialTheme.typography.bodyMedium)
                     Spacer(modifier = Modifier.height(8.dp))
-                    TextButton(onClick = onCalibrate) { Text("立即校准") }
+                    TextButton(onClick = onCalibrate) { Text(stringResource(R.string.action_calibrate_now)) }
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Text("关于", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.about), style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("版本 1.0.0", style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.version_format, "1.0.0"), style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
