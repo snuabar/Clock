@@ -78,6 +78,11 @@
             android:exported="false" />
 
         <receiver
+            android:name=".service.AlarmSnoozeReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <receiver
             android:name=".receiver.AlarmRescheduleWorker"
             android:enabled="true"
             android:exported="false" />

@@ -41,6 +41,7 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("vibrate_enabled", alarm.vibrateEnabled)
             putExtra("ring_duration_minutes", alarm.ringDurationMinutes)
             putExtra("crescendo_seconds", alarm.crescendoSeconds)
+            putExtra("snooze_minutes", alarm.snoozeMinutes)
         }
         context.startForegroundService(serviceIntent)
 

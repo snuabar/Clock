@@ -50,10 +50,12 @@ class AlarmService : Service() {
         val ringDurationMinutes = intent.getIntExtra("ring_duration_minutes", 5)
         val crescendoSeconds = intent.getIntExtra("crescendo_seconds", 0)
 
+        val snoozeMinutes = intent.getIntExtra("snooze_minutes", 5)
+
         // Stop any previous alarm state before starting new one (prevents overlapping)
         stopAlarm()
 
-        val notification = buildForegroundNotification(alarmName, alarmId)
+        val notification = buildForegroundNotification(alarmName, alarmId, snoozeMinutes)
         startForeground(NOTIFICATION_ID, notification)
 
         // Handle alarm based on ring mode
@@ -97,7 +99,7 @@ class AlarmService : Service() {
         }
     }
 
-    private fun buildForegroundNotification(alarmName: String, alarmId: String): android.app.Notification {
+    private fun buildForegroundNotification(alarmName: String, alarmId: String, snoozeMinutes: Int): android.app.Notification {
         val mainIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
@@ -117,6 +119,15 @@ class AlarmService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val snoozeIntent = PendingIntent.getBroadcast(
+            this,
+            3,
+            Intent(this, AlarmSnoozeReceiver::class.java).apply {
+                putExtra("alarm_id", alarmId)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("闹钟响了")
             .setContentText(alarmName)
@@ -127,7 +138,7 @@ class AlarmService : Service() {
             .setOngoing(true)
             .setAutoCancel(false)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setStyle(NotificationCompat.BigTextStyle().bigText("闹钟 $alarmName 正在响铃"))
+            .addAction(0, "贪睡 ${snoozeMinutes}分钟", snoozeIntent)
             .addAction(R.drawable.ic_launcher_foreground, "关闭", dismissIntent)
             .build()
     }
